@@ -43,6 +43,7 @@ import {
   ClipboardList,
   FileBarChart,
   Wallet,
+  TrendingUp,
 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -74,6 +75,9 @@ const getNavigationItems = (featureFlags: any) => {
     { name: 'Purchase Orders', href: '/dashboard/purchases', icon: Receipt, show: featureFlags?.feature_suppliers },
     { name: 'Expenses', href: '/dashboard/expenses', icon: DollarSign, show: featureFlags?.feature_expenses },
     { name: 'Auto Reordering', href: '/dashboard/reordering', icon: Repeat, show: featureFlags?.feature_auto_reordering },
+
+    // AI Features
+    { name: 'AI Forecasting', href: '/dashboard/forecasting', icon: TrendingUp, show: true },
 
     // Staff & Payroll
     { name: 'Staff', href: '/dashboard/staff', icon: UserPlus, show: featureFlags?.feature_staff },
