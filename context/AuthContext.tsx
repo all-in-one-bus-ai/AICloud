@@ -76,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string, businessName: string) => {
     try {
+      // Step 1: Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -84,69 +85,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (authError) return { error: authError.message };
       if (!authData.user) return { error: 'Failed to create user' };
 
-      const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-      const tenantInsert: any = {
-        name: businessName,
-        slug: `${slug}-${Date.now()}`,
-        email,
-        status: 'pending',
-      };
-
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenants')
-        .insert(tenantInsert)
-        .select()
-        .single();
-
-      if (tenantError || !tenantData) {
-        return { error: tenantError?.message || 'Failed to create tenant' };
+      // If no session, email confirmation may be required
+      if (!authData.session) {
+        return { error: 'Please check your email to confirm your account before signing in' };
       }
 
-      const tenant: any = tenantData;
+      // Step 2: Use secure database function to create tenant, branch, and profile
+      const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const uniqueSlug = `${slug}-${Date.now()}`;
 
-      const branchInsert: any = {
-        tenant_id: tenant.id,
-        name: 'Main Branch',
-        code: 'MAIN',
-      };
+      const { data: result, error: setupError } = await (supabase as any).rpc(
+        'create_tenant_for_new_user',
+        {
+          user_id: authData.user.id,
+          user_email: email,
+          user_full_name: fullName,
+          business_name: businessName,
+          business_slug: uniqueSlug,
+        }
+      );
 
-      const { data: branchData, error: branchError } = await supabase
-        .from('branches')
-        .insert(branchInsert)
-        .select()
-        .single();
+      if (setupError) {
+        // Clean up auth user if tenant creation fails
+        await supabase.auth.signOut();
+        return { error: setupError.message || 'Failed to set up your account' };
+      }
 
-      if (branchError || !branchData) return { error: branchError?.message || 'Failed to create branch' };
-
-      const branch: any = branchData;
-
-      const profileInsert: any = {
-        id: authData.user.id,
-        tenant_id: tenant.id,
-        branch_id: branch.id,
-        email,
-        full_name: fullName,
-        role: 'owner',
-      };
-
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert(profileInsert);
-
-      if (profileError) return { error: profileError.message };
-
-      const loyaltyInsert: any = {
-        tenant_id: tenant.id,
-      };
-
-      await supabase
-        .from('loyalty_settings')
-        .insert(loyaltyInsert);
+      // Fetch the user profile to update state
+      await fetchUserProfile(authData.user.id);
 
       return { error: null };
-    } catch (error) {
-      return { error: 'An unexpected error occurred' };
+    } catch (error: any) {
+      return { error: error?.message || 'An unexpected error occurred' };
     }
   };
 
