@@ -23,6 +23,7 @@ interface AuthContextType {
   loading: boolean;
   isSuperAdmin: boolean;
   signUp: (email: string, password: string, fullName: string, businessName: string) => Promise<{ error: string | null }>;
+  signUpSuperAdmin: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -168,6 +169,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   };
 
+  const signUpSuperAdmin = async (email: string, password: string, fullName: string) => {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) return { error: authError.message };
+      if (!authData.user) return { error: 'Failed to create user' };
+
+      if (!authData.session) {
+        return { error: 'Please check your email to confirm your account before signing in' };
+      }
+
+      const { error: profileError } = await (supabase as any)
+        .from('user_profiles')
+        .insert({
+          id: authData.user.id,
+          email: email,
+          full_name: fullName,
+          role: 'admin',
+          is_super_admin: true,
+          is_active: true,
+        });
+
+      if (profileError) {
+        await supabase.auth.signOut();
+        return { error: profileError.message };
+      }
+
+      await fetchUserProfile(authData.user.id);
+
+      return { error: null };
+    } catch (error: any) {
+      return { error: error?.message || 'An unexpected error occurred' };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUserProfile(null);
@@ -183,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isSuperAdmin = userProfile?.is_super_admin || false;
 
   return (
-    <AuthContext.Provider value={{ user, session, userProfile, loading, isSuperAdmin, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, userProfile, loading, isSuperAdmin, signUp, signUpSuperAdmin, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

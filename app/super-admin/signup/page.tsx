@@ -11,35 +11,45 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-export default function SuperAdminLoginPage() {
-  const { signIn, isSuperAdmin } = useAuth();
+export default function SuperAdminSignupPage() {
+  const { signUpSuperAdmin } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
+    fullName: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
 
-    const { error: signInError } = await signIn(formData.email, formData.password);
+    const { error: signUpError } = await signUpSuperAdmin(
+      formData.email,
+      formData.password,
+      formData.fullName
+    );
 
-    if (signInError) {
-      setError(signInError);
+    if (signUpError) {
+      setError(signUpError);
       setLoading(false);
     } else {
-      setTimeout(() => {
-        if (isSuperAdmin) {
-          router.push('/super-admin');
-        } else {
-          setError('Access denied. Super admin privileges required.');
-          setLoading(false);
-        }
-      }, 500);
+      router.push('/super-admin');
     }
   };
 
@@ -55,10 +65,10 @@ export default function SuperAdminLoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-center text-white">
-            Super Admin Access
+            Create Super Admin Account
           </CardTitle>
           <CardDescription className="text-center text-slate-300">
-            Platform administration portal
+            Register as platform administrator
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -68,6 +78,20 @@ export default function SuperAdminLoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="fullName" className="text-slate-200">Full Name</Label>
+              <Input
+                id="fullName"
+                type="text"
+                placeholder="John Doe"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                required
+                disabled={loading}
+                className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500"
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-200">Email</Label>
@@ -97,6 +121,20 @@ export default function SuperAdminLoginPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-slate-200">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                required
+                disabled={loading}
+                className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500"
+              />
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
@@ -105,29 +143,23 @@ export default function SuperAdminLoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Authenticating...
+                  Creating Account...
                 </>
               ) : (
                 <>
                   <Shield className="mr-2 h-4 w-4" />
-                  Access Portal
+                  Create Super Admin Account
                 </>
               )}
             </Button>
 
-            <div className="pt-4 border-t border-slate-700 space-y-2">
+            <div className="pt-4 border-t border-slate-700">
               <Link
-                href="/super-admin/signup"
-                className="flex items-center justify-center text-sm text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Create Super Admin Account
-              </Link>
-              <Link
-                href="/login"
+                href="/super-admin/login"
                 className="flex items-center justify-center text-sm text-slate-400 hover:text-slate-200 transition-colors"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Shop Login
+                Back to Super Admin Login
               </Link>
             </div>
           </form>
