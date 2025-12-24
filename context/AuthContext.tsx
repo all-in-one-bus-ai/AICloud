@@ -90,26 +90,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: 'Please check your email to confirm your account before signing in' };
       }
 
-      // Step 2: Use secure database function to create tenant, branch, and profile
+      // Step 2: Create tenant
       const slug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const uniqueSlug = `${slug}-${Date.now()}`;
 
-      const { data: result, error: setupError } = await (supabase as any).rpc(
-        'create_tenant_for_new_user',
-        {
-          user_id: authData.user.id,
-          user_email: email,
-          user_full_name: fullName,
-          business_name: businessName,
-          business_slug: uniqueSlug,
-        }
-      );
+      const { data: tenantData, error: tenantError } = await (supabase as any)
+        .from('tenants')
+        .insert({
+          name: businessName,
+          slug: uniqueSlug,
+          email: email,
+          status: 'active',
+        })
+        .select()
+        .single();
 
-      if (setupError) {
-        // Clean up auth user if tenant creation fails
+      if (tenantError || !tenantData) {
         await supabase.auth.signOut();
-        return { error: setupError.message || 'Failed to set up your account' };
+        return { error: tenantError?.message || 'Failed to create tenant' };
       }
+
+      // Step 3: Create main branch
+      const { data: branchData, error: branchError } = await (supabase as any)
+        .from('branches')
+        .insert({
+          tenant_id: tenantData.id,
+          name: 'Main Branch',
+          code: 'MAIN',
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (branchError || !branchData) {
+        await supabase.auth.signOut();
+        return { error: branchError?.message || 'Failed to create branch' };
+      }
+
+      // Step 4: Create user profile
+      const { error: profileError } = await (supabase as any)
+        .from('user_profiles')
+        .insert({
+          id: authData.user.id,
+          tenant_id: tenantData.id,
+          branch_id: branchData.id,
+          email: email,
+          full_name: fullName,
+          role: 'owner',
+          is_active: true,
+        });
+
+      if (profileError) {
+        await supabase.auth.signOut();
+        return { error: profileError.message };
+      }
+
+      // Step 5: Create default settings
+      await (supabase as any).from('loyalty_settings').insert({ tenant_id: tenantData.id });
+      await (supabase as any).from('tenant_feature_flags').insert({ tenant_id: tenantData.id });
 
       // Fetch the user profile to update state
       await fetchUserProfile(authData.user.id);
