@@ -146,14 +146,23 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <span className="text-xl font-bold text-slate-900">CloudPOS</span>
             </div>
             {currentBranch && (
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-600 mb-3">
                 <div className="font-medium">{currentBranch.name}</div>
                 <div className="text-xs">{userProfile?.full_name}</div>
               </div>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={signOut}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
 
-          <nav className="p-4 space-y-1">
+          <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
             {isSuperAdmin && (
               <Link
                 href="/super-admin"
@@ -183,17 +192,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
-
-          <div className="absolute bottom-0 w-64 p-4 border-t">
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={signOut}
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Sign Out
-            </Button>
-          </div>
         </aside>
 
         <main className="flex-1 p-8">
