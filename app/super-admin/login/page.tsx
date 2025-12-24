@@ -115,13 +115,7 @@ export default function SuperAdminLoginPage() {
               )}
             </Button>
 
-            <div className="pt-4 border-t border-slate-700 space-y-2">
-              <Link
-                href="/super-admin/signup"
-                className="flex items-center justify-center text-sm text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Create Super Admin Account
-              </Link>
+            <div className="pt-4 border-t border-slate-700">
               <Link
                 href="/login"
                 className="flex items-center justify-center text-sm text-slate-400 hover:text-slate-200 transition-colors"
