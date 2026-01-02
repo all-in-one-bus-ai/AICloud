@@ -137,7 +137,8 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     if (!tenantId) return;
 
-    const { data, error } = await supabase
+    // Load tenant's own products
+    const { data: ownProducts, error } = await supabase
       .from('products')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -148,7 +149,24 @@ export default function ProductsPage() {
       return;
     }
 
-    setProducts(data || []);
+    let allProducts = ownProducts || [];
+
+    // If demo products are enabled, also load them from the demo store
+    if (showDemoProducts) {
+      const DEMO_TENANT_ID = '28eef0b0-cdf0-4f45-a656-55b81b3b13d7';
+      const { data: demoProducts, error: demoError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('tenant_id', DEMO_TENANT_ID)
+        .eq('is_demo_product', true)
+        .order('name');
+
+      if (!demoError && demoProducts) {
+        allProducts = [...allProducts, ...demoProducts];
+      }
+    }
+
+    setProducts(allProducts);
   };
 
   const loadCategories = async () => {
