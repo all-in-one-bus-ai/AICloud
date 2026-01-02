@@ -128,7 +128,7 @@ export default function ProductsPage() {
       loadProducts();
       loadCategories();
     }
-  }, [tenantId, userProfile]);
+  }, [tenantId, userProfile, showDemoProducts]);
 
   useEffect(() => {
     filterAndSortProducts();
