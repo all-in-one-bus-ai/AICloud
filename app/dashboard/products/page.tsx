@@ -55,7 +55,7 @@ type Category = {
 };
 
 export default function ProductsPage() {
-  const { tenantId } = useTenant();
+  const { tenantId, showDemoProducts } = useTenant();
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
