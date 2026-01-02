@@ -1,0 +1,9 @@
+{
+  "name": "cloudpos-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "cd /app && yarn dev",
+    "build": "cd /app && yarn build",
+    "start": "cd /app && yarn start"
+  }
+}
