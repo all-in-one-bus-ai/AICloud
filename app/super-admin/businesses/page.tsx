@@ -563,6 +563,15 @@ export default function BusinessesPage() {
                       <div className="flex gap-2 ml-4">
                         <Button
                           size="sm"
+                          variant={tenant.show_demo_products ? "default" : "outline"}
+                          onClick={() => toggleDemoProducts(tenant.id, tenant.show_demo_products)}
+                          className={tenant.show_demo_products ? "bg-purple-600 hover:bg-purple-700" : ""}
+                        >
+                          <Package className="h-4 w-4 mr-1" />
+                          {tenant.show_demo_products ? "Demo ON" : "Demo OFF"}
+                        </Button>
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => openFeaturesDialog(tenant)}
                         >
