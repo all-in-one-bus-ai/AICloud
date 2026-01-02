@@ -41,6 +41,7 @@ type Product = {
   is_weight_based: boolean;
   weight_unit: string;
   min_quantity_step: number;
+  is_demo_product?: boolean;
 };
 
 type Category = {
