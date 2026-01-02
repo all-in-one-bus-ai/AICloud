@@ -9,11 +9,12 @@ from pathlib import Path
 import re
 
 # Supabase PostgreSQL connection details
+# Using the pooler connection (transaction mode)
 DB_CONFIG = {
-    "host": "db.ouipofstsbqoujfowwdg.supabase.co",
-    "port": 5432,
+    "host": "aws-0-us-east-1.pooler.supabase.com",
+    "port": 6543,
     "database": "postgres",
-    "user": "postgres",
+    "user": "postgres.ouipofstsbqoujfowwdg",
     "password": "-mXm7Q%vMknM/!+",
     "sslmode": "require"
 }
