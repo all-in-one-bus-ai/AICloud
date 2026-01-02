@@ -69,6 +69,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags | null>(null);
+  const [showDemoProducts, setShowDemoProducts] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,14 +77,28 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       setTenantId(userProfile.tenant_id);
       fetchBranches(userProfile.tenant_id);
       fetchFeatureFlags(userProfile.tenant_id);
+      fetchTenantSettings(userProfile.tenant_id);
     } else {
       setTenantId(null);
       setBranches([]);
       setCurrentBranch(null);
       setFeatureFlags(null);
+      setShowDemoProducts(false);
       setLoading(false);
     }
   }, [userProfile]);
+
+  const fetchTenantSettings = async (tenantId: string) => {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('show_demo_products')
+      .eq('id', tenantId)
+      .single();
+
+    if (!error && data) {
+      setShowDemoProducts(data.show_demo_products || false);
+    }
+  };
 
   const fetchBranches = async (tenantId: string) => {
     setLoading(true);
