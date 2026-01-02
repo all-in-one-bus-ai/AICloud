@@ -32,12 +32,34 @@ export default function SuperAdminLoginPage() {
       setError(signInError);
       setLoading(false);
     } else {
-      setTimeout(() => {
-        if (isSuperAdmin) {
-          router.push('/super-admin');
-        } else {
+      // Wait for the profile to load and check super admin status
+      let attempts = 0;
+      const maxAttempts = 20; // 10 seconds max wait
+      
+      const checkSuperAdmin = setInterval(async () => {
+        attempts++;
+        
+        // Fetch the profile directly to check super admin status
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('is_super_admin')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          if (profile?.is_super_admin) {
+            clearInterval(checkSuperAdmin);
+            router.push('/super-admin');
+            return;
+          }
+        }
+        
+        if (attempts >= maxAttempts) {
+          clearInterval(checkSuperAdmin);
           setError('Access denied. Super admin privileges required.');
           setLoading(false);
+          await supabase.auth.signOut();
         }
       }, 500);
     }
