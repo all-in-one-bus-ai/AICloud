@@ -24,6 +24,7 @@ interface Tenant {
   created_at: string;
   approved_at: string | null;
   subscription_id: string | null;
+  show_demo_products: boolean;
 }
 
 interface FeatureFlags {
