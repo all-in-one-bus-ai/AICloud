@@ -197,7 +197,7 @@ function POSContent() {
       return;
     }
     loadProducts();
-  }, [tenantId, userProfile]);
+  }, [tenantId, userProfile, showDemoProducts]);
 
   useEffect(() => {
     if (searchInput.trim().length >= 2) {
