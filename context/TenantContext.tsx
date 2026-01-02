@@ -146,7 +146,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <TenantContext.Provider value={{ tenantId, branches, currentBranch, setCurrentBranch, loading, featureFlags }}>
+    <TenantContext.Provider value={{ tenantId, branches, currentBranch, setCurrentBranch, loading, featureFlags, showDemoProducts }}>
       {children}
     </TenantContext.Provider>
   );
