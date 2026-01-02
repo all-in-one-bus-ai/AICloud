@@ -460,6 +460,27 @@ export default function BusinessesPage() {
     });
   };
 
+  const toggleDemoProducts = async (tenantId: string, currentValue: boolean) => {
+    const { error } = await (supabase as any)
+      .from('tenants')
+      .update({ show_demo_products: !currentValue })
+      .eq('id', tenantId);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update demo products setting',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: `Demo products ${!currentValue ? 'enabled' : 'disabled'} for this business`,
+      });
+      loadTenants();
+    }
+  };
+
   return (
     <SuperAdminLayout>
       <div className="space-y-6">
