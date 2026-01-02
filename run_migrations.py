@@ -1,45 +1,28 @@
 #!/usr/bin/env python3
 """
-Supabase Migration Runner
-Runs SQL migrations against a Supabase database using the Management API
+Supabase Migration Runner - Direct PostgreSQL Connection
 """
 
-import os
-import httpx
+import psycopg2
 import time
 from pathlib import Path
+import re
 
-# Supabase configuration
-SUPABASE_URL = "https://ouipofstsbqoujfowwdg.supabase.co"
-SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91aXBvZnN0c2Jxb3VqZm93d2RnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzMwODQxMSwiZXhwIjoyMDgyODg0NDExfQ.Ze6LBrF8s6pCMhlc6VP6DCQgX6oWUpijRVa6RAUoO4w"
+# Supabase PostgreSQL connection details
+DB_CONFIG = {
+    "host": "db.ouipofstsbqoujfowwdg.supabase.co",
+    "port": 5432,
+    "database": "postgres",
+    "user": "postgres",
+    "password": "-mXm7Q%vMknM/!+",
+    "sslmode": "require"
+}
 
-# PostgreSQL connection via Supabase
-# Using the SQL execution endpoint
-SQL_ENDPOINT = f"{SUPABASE_URL}/rest/v1/rpc/exec_sql"
+def get_connection():
+    """Create database connection"""
+    return psycopg2.connect(**DB_CONFIG)
 
-def execute_sql_via_rpc(sql: str, client: httpx.Client) -> dict:
-    """Execute SQL via a custom RPC function (if available)"""
-    headers = {
-        "apikey": SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-    }
-    
-    response = client.post(
-        SQL_ENDPOINT,
-        headers=headers,
-        json={"query": sql},
-        timeout=60.0
-    )
-    return response
-
-def create_exec_sql_function(client: httpx.Client) -> bool:
-    """Create a helper function to execute raw SQL"""
-    # This won't work via REST API - we need direct database access
-    return False
-
-def run_migration_file(filepath: Path, client: httpx.Client) -> tuple[bool, str]:
+def run_migration_file(filepath: Path, cursor) -> tuple:
     """Run a single migration file"""
     try:
         sql = filepath.read_text()
@@ -48,13 +31,13 @@ def run_migration_file(filepath: Path, client: httpx.Client) -> tuple[bool, str]
         if not sql.strip():
             return True, "Empty file, skipped"
         
-        response = execute_sql_via_rpc(sql, client)
+        # Execute the entire file as one transaction
+        cursor.execute(sql)
+        return True, "Success"
         
-        if response.status_code in [200, 201, 204]:
-            return True, "Success"
-        else:
-            return False, f"HTTP {response.status_code}: {response.text[:500]}"
-            
+    except psycopg2.Error as e:
+        error_msg = str(e).split('\n')[0]  # Get first line of error
+        return False, error_msg
     except Exception as e:
         return False, str(e)
 
@@ -64,21 +47,50 @@ def main():
     
     print(f"Found {len(migration_files)} migration files")
     print("=" * 60)
+    print("Connecting to Supabase PostgreSQL...")
     
-    with httpx.Client() as client:
+    try:
+        conn = get_connection()
+        conn.autocommit = True  # Each migration runs independently
+        cursor = conn.cursor()
+        print("✓ Connected successfully!")
+        print("=" * 60)
+        
+        success_count = 0
+        error_count = 0
+        
         for i, filepath in enumerate(migration_files, 1):
-            print(f"\n[{i}/{len(migration_files)}] Running: {filepath.name}")
-            success, message = run_migration_file(filepath, client)
+            print(f"\n[{i}/{len(migration_files)}] {filepath.name}")
+            
+            success, message = run_migration_file(filepath, cursor)
             
             if success:
                 print(f"  ✓ {message}")
+                success_count += 1
             else:
                 print(f"  ✗ {message}")
+                error_count += 1
             
-            time.sleep(0.5)  # Rate limiting
-    
-    print("\n" + "=" * 60)
-    print("Migration process completed!")
+            time.sleep(0.2)  # Small delay between migrations
+        
+        cursor.close()
+        conn.close()
+        
+        print("\n" + "=" * 60)
+        print(f"Migration completed!")
+        print(f"  Successful: {success_count}")
+        print(f"  Errors: {error_count}")
+        print("=" * 60)
+        
+        return error_count == 0
+        
+    except psycopg2.Error as e:
+        print(f"✗ Database connection failed: {e}")
+        return False
+    except Exception as e:
+        print(f"✗ Error: {e}")
+        return False
 
 if __name__ == "__main__":
-    main()
+    success = main()
+    exit(0 if success else 1)
