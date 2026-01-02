@@ -215,17 +215,36 @@ function POSContent() {
   const loadProducts = async () => {
     if (!tenantId) return;
 
-    const { data } = await supabase
+    // Load tenant's own products
+    const { data: ownProducts } = await supabase
       .from('products')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
       .order('name');
 
-    if (data) {
-      setProducts(data);
-      setDisplayProducts(data);
-      const featuredProducts = data.filter((p: Product) => (p as any).is_featured_category);
+    let allProducts = ownProducts || [];
+
+    // If demo products are enabled, also load them
+    if (showDemoProducts) {
+      const DEMO_TENANT_ID = '28eef0b0-cdf0-4f45-a656-55b81b3b13d7';
+      const { data: demoProducts } = await supabase
+        .from('products')
+        .select('*')
+        .eq('tenant_id', DEMO_TENANT_ID)
+        .eq('is_demo_product', true)
+        .eq('is_active', true)
+        .order('name');
+
+      if (demoProducts) {
+        allProducts = [...allProducts, ...demoProducts];
+      }
+    }
+
+    if (allProducts) {
+      setProducts(allProducts);
+      setDisplayProducts(allProducts);
+      const featuredProducts = allProducts.filter((p: Product) => (p as any).is_featured_category);
       const allCategories = featuredProducts.map((p: Product) => p.category).filter(Boolean) as string[];
       const uniqueCategories = ['All', ...Array.from(new Set(allCategories))];
       setCategories(uniqueCategories);
