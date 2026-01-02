@@ -35,7 +35,7 @@ const formatWeightUnitPrice = (price: number): string => {
 function POSContent() {
   const { cart, membership, setMembership, addItem, removeItem, updateItemQuantity, clearCart, subtotal, totalDiscount, grandTotal, promotionSummary } = useCart();
   const { userProfile } = useAuth();
-  const { tenantId, currentBranch } = useTenant();
+  const { tenantId, currentBranch, showDemoProducts } = useTenant();
   const { toast } = useToast();
   const router = useRouter();
 
