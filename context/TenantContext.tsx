@@ -58,6 +58,7 @@ interface TenantContextType {
   setCurrentBranch: (branch: Branch) => void;
   loading: boolean;
   featureFlags: FeatureFlags | null;
+  showDemoProducts: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
