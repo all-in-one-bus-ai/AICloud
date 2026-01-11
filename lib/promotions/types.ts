@@ -13,6 +13,7 @@ export interface CartItem {
   tare_weight?: number;
   is_scale_measured: boolean;
   line_subtotal: number;
+  manual_discount: number;
   line_discount: number;
   group_offer_id?: string;
   group_instance_index?: number;

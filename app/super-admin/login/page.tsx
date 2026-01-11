@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase/client';
 
 export default function SuperAdminLoginPage() {
   const { signIn, isSuperAdmin } = useAuth();
@@ -47,9 +47,9 @@ export default function SuperAdminLoginPage() {
             .from('user_profiles')
             .select('is_super_admin')
             .eq('id', user.id)
-            .maybeSingle() as { data: { is_super_admin: boolean } | null };
-          
-          if (profile?.is_super_admin) {
+            .maybeSingle();
+
+          if (profile && (profile as any).is_super_admin) {
             clearInterval(checkSuperAdmin);
             router.push('/super-admin');
             return;

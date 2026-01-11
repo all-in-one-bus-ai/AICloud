@@ -1,17 +1,10 @@
-For all designs I ask you to make, have them be beautiful, not cookie cutter. Make webpages that are fully featured and worthy for production.
+Context:
+This is an existing, working CloudPOS SaaS.
+Several features are already live and stable.
 
-When using client-side hooks (useState and useEffect) in a component that's being treated as a Server Component by Next.js, always add the "use client" directive at the top of the file.
-
-Do not write code that will trigger this error: "Warning: Extra attributes from the server: %s%s""class,style"
-
-By default, this template supports JSX syntax with Tailwind CSS classes, the shadcn/ui library, React hooks, and Lucide React for icons. Do not install other packages for UI themes, icons, etc unless absolutely necessary or I request them.
-
-Use icons from lucide-react for logos.
-
-IMPORTANT REQUIREMENTS
-1) Do not redesign everything unless told to do so. Extend current UI style, sidebar, cards, and layout.
-2) Every feature must be multi-tenant and role-based (owner/manager/cashier/superadmin).
-3) Make modules OPTIONAL via tenant feature flags (add-on toggles). If disabled, hide UI and block routes.
-4) Keep “core POS” fast; heavy features should be separate pages/modules.
-5) Use Supabase Postgres + RLS everywhere.
-6) Add audit logging for key actions across modules.
+Hard rules:
+- Do NOT refactor existing working code
+- Do NOT redesign UI unless requested.
+- Add or modify only the requested feature or page.
+- Keep changes minimal
+- Reuse existing patterns

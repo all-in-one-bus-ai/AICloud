@@ -8,12 +8,17 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, User, Trash2, ShoppingCart, Tag, Percent, Star, LayoutDashboard, Package } from 'lucide-react';
+import { Search, User, Trash2, ShoppingCart, Tag, Percent, Star, LayoutDashboard, Package, Printer } from 'lucide-react';
 import { WeightEntryModal } from '@/components/WeightEntryModal';
+import { CartItemContextMenu } from '@/components/CartItemContextMenu';
 import { Database } from '@/lib/supabase/types';
 import { getMembershipByBarcode } from '@/lib/loyalty/service';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { CartItem as CartItemType } from '@/lib/promotions/types';
+import { ReceiptTemplate } from '@/components/receipt/ReceiptTemplate';
+import { generateReceiptData } from '@/lib/receipt/receiptService';
+import { ReceiptData } from '@/lib/receipt/types';
 
 type Product = Database['public']['Tables']['products']['Row'];
 
@@ -33,7 +38,7 @@ const formatWeightUnitPrice = (price: number): string => {
 };
 
 function POSContent() {
-  const { cart, membership, setMembership, addItem, removeItem, updateItemQuantity, clearCart, subtotal, totalDiscount, grandTotal, promotionSummary } = useCart();
+  const { cart, membership, setMembership, addItem, removeItem, updateItemQuantity, updateItemWeight, updateItemPrice, updateItemDiscount, clearCart, subtotal, totalDiscount, grandTotal, promotionSummary } = useCart();
   const { userProfile } = useAuth();
   const { tenantId, currentBranch, showDemoProducts } = useTenant();
   const { toast } = useToast();
@@ -67,12 +72,17 @@ function POSContent() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [showReceiptPrintDialog, setShowReceiptPrintDialog] = useState(false);
   const [receiptBarcode, setReceiptBarcode] = useState('');
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState('');
   const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
   const [cashInputValue, setCashInputValue] = useState('');
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [weightProduct, setWeightProduct] = useState<Product | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ item: CartItemType | null; position: { x: number; y: number } } | null>(null);
+  const [weightEditItemId, setWeightEditItemId] = useState<string | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   const loadDraftCarts = async () => {
     if (!tenantId || !currentBranch) return;
@@ -318,7 +328,19 @@ function POSContent() {
   };
 
   const handleWeightConfirm = (weight: number) => {
-    if (weightProduct) {
+    if (weightEditItemId) {
+      updateItemWeight(weightEditItemId, weight);
+      const item = cart.find(i => i.id === weightEditItemId);
+      if (item) {
+        const displayWeight = convertWeightToKg(weight, 'g');
+        toast({
+          title: 'Weight Updated',
+          description: `${item.product_name} - ${displayWeight} kg`,
+        });
+      }
+      setWeightEditItemId(null);
+      setWeightProduct(null);
+    } else if (weightProduct) {
       const quantityForCalculation = weight / 1000;
 
       addItem(weightProduct, quantityForCalculation, {
@@ -334,6 +356,105 @@ function POSContent() {
       });
       setWeightProduct(null);
     }
+  };
+
+  const handleCartItemClick = (item: CartItemType) => {
+    if (!item.is_weight_item) {
+      updateItemQuantity(item.id, item.quantity + 1);
+    }
+  };
+
+  const handleCartItemLongPress = (item: CartItemType, e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setContextMenu({
+      item,
+      position: { x: rect.left, y: rect.bottom + 5 }
+    });
+  };
+
+  const handleCartItemRightClick = (item: CartItemType, e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      item,
+      position: { x: e.clientX, y: e.clientY }
+    });
+  };
+
+  const handleTouchStart = (item: CartItemType, e: React.TouchEvent) => {
+    const timer = setTimeout(() => {
+      handleCartItemLongPress(item, e);
+    }, 500);
+    setLongPressTimer(timer);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleChangeWeight = (itemId: string) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+
+    const product = products.find(p => p.id === item.product_id);
+    if (!product) return;
+
+    setWeightEditItemId(itemId);
+    setWeightProduct(product);
+    setShowWeightModal(true);
+  };
+
+  const handleChangePrice = async (itemId: string, newPrice: number) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+
+    await updateItemPrice(itemId, newPrice, item.is_weight_item);
+
+    toast({
+      title: 'Price Updated',
+      description: item.is_weight_item
+        ? 'Price updated for this sale and in inventory'
+        : 'Price updated for this sale only',
+    });
+  };
+
+  const handleApplyDiscount = (itemId: string, discountType: 'percentage' | 'fixed', discountValue: number) => {
+    updateItemDiscount(itemId, discountType, discountValue);
+    toast({
+      title: 'Discount Applied',
+      description: `${discountType === 'percentage' ? discountValue + '%' : '£' + discountValue.toFixed(2)} discount applied to item`,
+    });
+  };
+
+  const handleReduceQuantity = (itemId: string) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (item.quantity > 1) {
+      updateItemQuantity(itemId, item.quantity - 1);
+      toast({
+        title: 'Quantity Reduced',
+        description: `${item.product_name} quantity reduced to ${item.quantity - 1}`,
+      });
+    }
+  };
+
+  const handleSetQuantity = (itemId: string, newQuantity: number) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+
+    updateItemQuantity(itemId, newQuantity);
+    toast({
+      title: 'Quantity Updated',
+      description: `${item.product_name} quantity set to ${newQuantity}`,
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
   };
 
   const handleNumberClick = (value: string) => {
@@ -412,6 +533,36 @@ function POSContent() {
     try {
       const saleNumber = 'S' + Date.now().toString();
 
+      const { data: taxSettings } = await supabase
+        .from('tax_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      const taxRate = (taxSettings as any)?.tax_rate || 20;
+      const taxEnabled = (taxSettings as any)?.tax_enabled ?? true;
+      const taxInclusive = (taxSettings as any)?.tax_inclusive ?? true;
+
+      const taxableAmount = subtotal - totalDiscount;
+      let taxAmount = 0;
+
+      if (taxEnabled) {
+        if (taxInclusive) {
+          taxAmount = taxableAmount - taxableAmount / (1 + taxRate / 100);
+        } else {
+          taxAmount = taxableAmount * (taxRate / 100);
+        }
+      }
+
+      const { data: loyaltySettings } = await supabase
+        .from('loyalty_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      const earnRate = (loyaltySettings as any)?.earn_rate_value || 0.01;
+      const loyaltyCoinsEarned = membership ? Math.floor(grandTotal * earnRate) : 0;
+
       const { data: saleData, error: saleError } = await (supabase as any)
         .from('sales')
         .insert({
@@ -422,6 +573,8 @@ function POSContent() {
           membership_id: membership?.id || null,
           subtotal: subtotal,
           total_discount: totalDiscount,
+          tax_amount: taxAmount,
+          loyalty_coins_earned: loyaltyCoinsEarned,
           grand_total: grandTotal,
           payment_method: paymentType,
           payment_amount: paymentType === 'cash' ? cashReceived : grandTotal,
@@ -442,11 +595,56 @@ function POSContent() {
             tenant_id: tenantId,
             sale_id: saleData.id,
             product_id: item.product_id,
+            product_name: item.product_name,
+            product_sku: item.product_sku,
             quantity: item.quantity,
             unit_price: item.unit_price,
+            is_weight_item: item.is_weight_item,
+            measured_weight: item.measured_weight,
+            tare_weight: item.tare_weight,
+            is_scale_measured: item.is_scale_measured,
+            line_subtotal: item.line_subtotal,
             line_discount: item.line_discount,
             line_total: item.line_total,
           });
+      }
+
+      if (membership && loyaltyCoinsEarned > 0) {
+        await (supabase as any)
+          .from('loyalty_coin_transactions')
+          .insert({
+            tenant_id: tenantId,
+            membership_id: membership.id,
+            sale_id: saleData.id,
+            transaction_type: 'earn',
+            coins_amount: loyaltyCoinsEarned,
+            transaction_date: new Date().toISOString(),
+          });
+
+        const { data: balance } = await supabase
+          .from('loyalty_coin_balances')
+          .select('*')
+          .eq('membership_id', membership.id)
+          .maybeSingle();
+
+        if (balance) {
+          await (supabase as any)
+            .from('loyalty_coin_balances')
+            .update({
+              current_balance: (balance as any).current_balance + loyaltyCoinsEarned,
+              lifetime_earned: (balance as any).lifetime_earned + loyaltyCoinsEarned,
+            })
+            .eq('membership_id', membership.id);
+        } else {
+          await (supabase as any)
+            .from('loyalty_coin_balances')
+            .insert({
+              tenant_id: tenantId,
+              membership_id: membership.id,
+              current_balance: loyaltyCoinsEarned,
+              lifetime_earned: loyaltyCoinsEarned,
+            });
+        }
       }
 
       loadTransactionHistory();
@@ -461,8 +659,31 @@ function POSContent() {
 
     await saveSaleToDatabase(barcode);
 
-    if (printReceipt) {
-      setShowReceiptPrintDialog(true);
+    if (printReceipt && tenantId && userProfile) {
+      setLoadingReceipt(true);
+      try {
+        const receiptDataGenerated = await generateReceiptData(
+          tenantId,
+          cart,
+          paymentType === 'cash' ? 'Cash' : paymentType === 'card' ? 'Credit Card' : 'Split Payment',
+          paymentType === 'cash' ? cashReceived : grandTotal,
+          changeAmount,
+          membership,
+          userProfile.id,
+          barcode
+        );
+        setReceiptData(receiptDataGenerated);
+        setShowReceiptPrintDialog(true);
+      } catch (error) {
+        console.error('Error generating receipt:', error);
+        toast({
+          title: 'Receipt Error',
+          description: 'Failed to generate receipt',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingReceipt(false);
+      }
     } else {
       toast({
         title: 'Payment Completed',
@@ -474,6 +695,10 @@ function POSContent() {
     setCashInputValue('');
     setShowReceiptDialog(false);
     setShowChangeDialog(false);
+  };
+
+  const handlePrintReceipt = () => {
+    window.print();
   };
 
   const loadTransactionHistory = async () => {
@@ -517,7 +742,7 @@ function POSContent() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50" onClick={closeContextMenu}>
       <div style={{ width: '45%' }} className="bg-[#e8e4dc] border-r border-slate-300 flex flex-col p-3">
         <div className="flex-1 overflow-y-auto mb-3">
           <div className="bg-white rounded-md shadow-sm overflow-hidden">
@@ -547,7 +772,22 @@ function POSContent() {
                       <tr
                         key={item.id}
                         className="border-b border-slate-200 hover:bg-slate-50 cursor-pointer relative group"
-                        onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCartItemClick(item);
+                        }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          handleCartItemRightClick(item, e);
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation();
+                          handleTouchStart(item, e);
+                        }}
+                        onTouchEnd={(e) => {
+                          e.stopPropagation();
+                          handleTouchEnd();
+                        }}
                       >
                         <td className="px-3 py-2">
                           <div className={`font-semibold ${fontSize} truncate pr-6`}>
@@ -964,85 +1204,29 @@ function POSContent() {
       </Dialog>
 
       <Dialog open={showReceiptPrintDialog} onOpenChange={setShowReceiptPrintDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Receipt</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="text-center space-y-2 pb-4 border-b">
-              <h3 className="font-bold">{currentBranch?.name || 'Store'}</h3>
-              <p className="text-xs text-slate-600">Point of Sale Receipt</p>
-              <p className="text-xs text-slate-600">{new Date().toLocaleString()}</p>
-            </div>
-
-            <div className="space-y-2">
-              {cart.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <div className="flex-1">
-                    <div>{item.product_name}</div>
-                    {item.is_weight_item && item.measured_weight ? (
-                      <div className="text-xs text-slate-500">
-                        {convertWeightToKg(item.measured_weight, item.weight_unit)} kg × {formatWeightUnitPrice(item.unit_price)}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-500">
-                        {item.quantity} x £{item.unit_price.toFixed(2)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="font-medium">£{item.line_total.toFixed(2)}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t pt-2 space-y-1">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span>£{subtotal.toFixed(2)}</span>
+          <div className="py-4">
+            {loadingReceipt ? (
+              <div className="text-center py-8 text-slate-600">
+                Loading receipt...
               </div>
-              {totalDiscount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Discount:</span>
-                  <span>-£{totalDiscount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                <span>Total:</span>
-                <span>£{grandTotal.toFixed(2)}</span>
+            ) : receiptData ? (
+              <ReceiptTemplate data={receiptData} />
+            ) : (
+              <div className="text-center py-8 text-slate-600">
+                No receipt data available
               </div>
-            </div>
-
-            <div className="flex flex-col items-center pt-4 border-t space-y-2">
-              <div className="text-xs text-slate-600">Receipt #</div>
-              <div className="bg-white border-2 border-slate-800 p-3 rounded">
-                <div className="font-mono text-lg font-bold tracking-wider">{receiptBarcode}</div>
-              </div>
-              <div className="h-16 flex items-center">
-                <svg viewBox="0 0 200 60" className="w-48 h-16">
-                  {receiptBarcode.split('').map((char, i) => {
-                    const code = char.charCodeAt(0);
-                    const width = (code % 3) + 2;
-                    return (
-                      <rect
-                        key={i}
-                        x={i * 10}
-                        y="0"
-                        width={width}
-                        height="60"
-                        fill="black"
-                      />
-                    );
-                  })}
-                </svg>
-              </div>
-            </div>
-
-            <div className="text-center text-xs text-slate-500 pt-2">
-              Thank you for your purchase!
-            </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button onClick={() => { setShowReceiptPrintDialog(false); clearCart(); }} className="w-full">
+          <DialogFooter className="gap-2 no-print">
+            <Button onClick={handlePrintReceipt} variant="outline" className="flex-1">
+              <Printer className="w-4 h-4 mr-2" />
+              Print Receipt
+            </Button>
+            <Button onClick={() => { setShowReceiptPrintDialog(false); setReceiptData(null); }} className="flex-1">
               Close
             </Button>
           </DialogFooter>
@@ -1288,7 +1472,13 @@ function POSContent() {
 
       <WeightEntryModal
         open={showWeightModal}
-        onOpenChange={setShowWeightModal}
+        onOpenChange={(open) => {
+          setShowWeightModal(open);
+          if (!open) {
+            setWeightEditItemId(null);
+            setWeightProduct(null);
+          }
+        }}
         onConfirm={handleWeightConfirm}
         product={weightProduct ? {
           name: weightProduct.name,
@@ -1296,7 +1486,23 @@ function POSContent() {
           weight_unit: (weightProduct as any).weight_unit || 'kg',
           min_quantity_step: (weightProduct as any).min_quantity_step || 0.1,
         } : null}
+        initialWeight={weightEditItemId ? cart.find(i => i.id === weightEditItemId)?.measured_weight : undefined}
       />
+
+      {contextMenu && contextMenu.item && (
+        <CartItemContextMenu
+          item={contextMenu.item}
+          position={contextMenu.position}
+          onClose={closeContextMenu}
+          onChangeWeight={handleChangeWeight}
+          onChangePrice={handleChangePrice}
+          onApplyDiscount={handleApplyDiscount}
+          onDelete={removeItem}
+          onReduceQuantity={handleReduceQuantity}
+          onSetQuantity={handleSetQuantity}
+          onProductsReload={loadProducts}
+        />
+      )}
     </div>
   );
 }

@@ -21,7 +21,7 @@ const navigation = [
   { name: 'Businesses', href: '/super-admin/businesses', icon: Building2 },
   { name: 'Subscriptions', href: '/super-admin/subscriptions', icon: Package },
   { name: 'Users', href: '/super-admin/users', icon: Users },
-  { name: 'Activity Log', href: '/super-admin/activity-log', icon: Activity },
+  { name: 'Activity Log', href: '/super-admin/activity', icon: Activity },
   { name: 'Settings', href: '/super-admin/settings', icon: Settings },
 ];
 

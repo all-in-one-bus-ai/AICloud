@@ -20,6 +20,9 @@ interface CartContextType {
   addItem: (product: Product, quantity: number, weightData?: { weight: number; tare: number; isScaleMeasured: boolean; weightUnit?: string }) => void;
   removeItem: (itemId: string) => void;
   updateItemQuantity: (itemId: string, quantity: number) => void;
+  updateItemWeight: (itemId: string, newWeight: number) => void;
+  updateItemPrice: (itemId: string, newPrice: number, updateInventory?: boolean) => Promise<void>;
+  updateItemDiscount: (itemId: string, discountType: 'percentage' | 'fixed', discountValue: number) => void;
   clearCart: () => void;
   setMembership: (membership: Membership | null) => void;
 }
@@ -146,6 +149,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         tare_weight: weightData?.tare,
         is_scale_measured: weightData?.isScaleMeasured || false,
         line_subtotal: quantity * product.price_per_unit,
+        manual_discount: 0,
         line_discount: 0,
         group_discount_share: 0,
         bogo_discount_share: 0,
@@ -181,13 +185,82 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart(updatedCart);
   };
 
+  const updateItemWeight = (itemId: string, newWeight: number) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId && item.is_weight_item) {
+        const quantityForCalculation = newWeight / 1000;
+        const newLineSubtotal = quantityForCalculation * item.unit_price;
+        const newLineTotal = newLineSubtotal - (item.line_discount || 0);
+        return {
+          ...item,
+          measured_weight: newWeight,
+          quantity: quantityForCalculation,
+          line_subtotal: newLineSubtotal,
+          line_total: newLineTotal,
+        };
+      }
+      return item;
+    });
+
+    setCart(updatedCart);
+  };
+
+  const updateItemPrice = async (itemId: string, newPrice: number, updateInventory: boolean = false) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (updateInventory && tenantId) {
+      await (supabase as any)
+        .from('products')
+        .update({ price_per_unit: newPrice })
+        .eq('id', item.product_id)
+        .eq('tenant_id', tenantId);
+    }
+
+    const updatedCart = cart.map(cartItem => {
+      if (cartItem.id === itemId) {
+        const newLineSubtotal = cartItem.quantity * newPrice;
+        const newLineTotal = newLineSubtotal - (cartItem.line_discount || 0);
+        return {
+          ...cartItem,
+          unit_price: newPrice,
+          line_subtotal: newLineSubtotal,
+          line_total: newLineTotal,
+        };
+      }
+      return cartItem;
+    });
+
+    setCart(updatedCart);
+  };
+
+  const updateItemDiscount = (itemId: string, discountType: 'percentage' | 'fixed', discountValue: number) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId) {
+        const discountAmount = discountType === 'percentage'
+          ? (item.line_subtotal * discountValue) / 100
+          : discountValue;
+
+        const finalDiscount = Math.min(discountAmount, item.line_subtotal);
+
+        return {
+          ...item,
+          manual_discount: finalDiscount,
+        };
+      }
+      return item;
+    });
+
+    setCart(updatedCart);
+  };
+
   const clearCart = () => {
     setCart([]);
     setMembership(null);
   };
 
   const subtotal = displayCart.reduce((sum, item) => sum + item.line_subtotal, 0);
-  const totalDiscount = currentPromotionSummary.totalDiscount;
+  const totalDiscount = displayCart.reduce((sum, item) => sum + (item.line_discount || 0), 0);
   const grandTotal = subtotal - totalDiscount;
 
   return (
@@ -202,6 +275,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         addItem,
         removeItem,
         updateItemQuantity,
+        updateItemWeight,
+        updateItemPrice,
+        updateItemDiscount,
         clearCart,
         setMembership,
       }}

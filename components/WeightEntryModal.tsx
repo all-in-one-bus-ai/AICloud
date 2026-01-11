@@ -16,16 +16,17 @@ interface WeightEntryModalProps {
     weight_unit: string;
     min_quantity_step: number;
   } | null;
+  initialWeight?: number;
 }
 
-export function WeightEntryModal({ open, onOpenChange, onConfirm, product }: WeightEntryModalProps) {
+export function WeightEntryModal({ open, onOpenChange, onConfirm, product, initialWeight }: WeightEntryModalProps) {
   const [weight, setWeight] = useState('');
 
   useEffect(() => {
     if (open) {
-      setWeight('');
+      setWeight(initialWeight ? initialWeight.toString() : '');
     }
-  }, [open]);
+  }, [open, initialWeight]);
 
   if (!product) return null;
 

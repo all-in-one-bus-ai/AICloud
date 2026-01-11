@@ -30,8 +30,8 @@ export function applyPromotions(
 
   workingCart = workingCart.map(item => ({
     ...item,
-    line_discount: item.group_discount_share + item.bogo_discount_share + item.time_discount_amount,
-    line_total: item.line_subtotal - (item.group_discount_share + item.bogo_discount_share + item.time_discount_amount),
+    line_discount: (item.manual_discount || 0) + item.group_discount_share + item.bogo_discount_share + item.time_discount_amount,
+    line_total: item.line_subtotal - ((item.manual_discount || 0) + item.group_discount_share + item.bogo_discount_share + item.time_discount_amount),
   }));
 
   const totalDiscount = workingCart.reduce((sum, item) => sum + item.line_discount, 0);
@@ -50,7 +50,7 @@ export function applyPromotions(
 function resetDiscounts(cart: CartItem[]): CartItem[] {
   return cart.map(item => ({
     ...item,
-    line_discount: 0,
+    line_discount: item.manual_discount || 0,
     group_offer_id: undefined,
     group_instance_index: undefined,
     group_discount_share: 0,
@@ -59,7 +59,7 @@ function resetDiscounts(cart: CartItem[]): CartItem[] {
     bogo_discount_share: 0,
     time_discount_id: undefined,
     time_discount_amount: 0,
-    line_total: item.line_subtotal,
+    line_total: item.line_subtotal - (item.manual_discount || 0),
   }));
 }
 

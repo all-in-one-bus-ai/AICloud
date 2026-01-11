@@ -80,3 +80,31 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-container,
+  .receipt-container * {
+    visibility: visible;
+  }
+
+  .receipt-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

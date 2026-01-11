@@ -5,6 +5,7 @@ import { useTenant } from '@/context/TenantContext';
 import { Button } from './ui/button';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 import {
   Store,
   ShoppingCart,
@@ -44,6 +45,8 @@ import {
   FileBarChart,
   Wallet,
   TrendingUp,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -108,7 +111,18 @@ const getNavigationItems = (featureFlags: any) => {
     { name: 'Advanced Reports', href: '/dashboard/reports', icon: FileBarChart, show: featureFlags?.feature_advanced_reports },
 
     // Settings
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings, show: true },
+    {
+      name: 'Settings',
+      href: '/dashboard/settings',
+      icon: Settings,
+      show: true,
+      submenu: [
+        { name: 'Hardware Devices', href: '/dashboard/settings/devices', icon: Settings },
+        { name: 'Store Information', href: '/dashboard/settings/store', icon: Store },
+        { name: 'Security', href: '/dashboard/settings/security', icon: Shield },
+        { name: 'Setup Guide', href: '/dashboard/settings/setup', icon: Settings },
+      ]
+    },
   ];
 
   return items.filter(item => item.show);
@@ -119,6 +133,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { currentBranch, featureFlags } = useTenant();
   const pathname = usePathname();
   const router = useRouter();
+  const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({});
 
   const navigation = getNavigationItems(featureFlags);
 
@@ -127,6 +142,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       router.push('/login');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (pathname?.startsWith('/dashboard/settings/')) {
+      setExpandedMenus((prev) => ({ ...prev, Settings: true }));
+    }
+  }, [pathname]);
 
   if (authLoading || !user) {
     return (
@@ -175,6 +196,55 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+              const hasSubmenu = item.submenu && item.submenu.length > 0;
+              const isExpanded = expandedMenus[item.name];
+
+              if (hasSubmenu) {
+                return (
+                  <div key={item.name} className="space-y-1">
+                    <button
+                      onClick={() => setExpandedMenus({ ...expandedMenus, [item.name]: !isExpanded })}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-5 w-5" />
+                        {item.name}
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="ml-4 space-y-1">
+                        {item.submenu.map((subItem) => {
+                          const SubIcon = subItem.icon;
+                          const isSubActive = pathname === subItem.href;
+                          return (
+                            <Link
+                              key={subItem.name}
+                              href={subItem.href}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                                isSubActive
+                                  ? 'bg-blue-50 text-blue-700 font-medium'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              <SubIcon className="h-4 w-4" />
+                              {subItem.name}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
               return (
                 <Link

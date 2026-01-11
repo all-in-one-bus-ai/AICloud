@@ -14,7 +14,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ActivityLogger } from '@/lib/activity-logger';
 
 interface Tenant {
   id: string;
@@ -462,7 +461,6 @@ export default function BusinessesPage() {
   };
 
   const toggleDemoProducts = async (tenantId: string, currentValue: boolean) => {
-    const tenant = tenants.find(t => t.id === tenantId);
     const { error } = await (supabase as any)
       .from('tenants')
       .update({ show_demo_products: !currentValue })
@@ -475,9 +473,6 @@ export default function BusinessesPage() {
         variant: 'destructive',
       });
     } else {
-      // Log the activity
-      await ActivityLogger.demoProductsToggled(tenantId, tenant?.name || '', !currentValue);
-      
       toast({
         title: 'Success',
         description: `Demo products ${!currentValue ? 'enabled' : 'disabled'} for this business`,

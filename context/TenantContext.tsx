@@ -93,10 +93,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       .from('tenants')
       .select('show_demo_products')
       .eq('id', tenantId)
-      .single() as { data: { show_demo_products: boolean } | null, error: any };
+      .single();
 
     if (!error && data) {
-      setShowDemoProducts(data.show_demo_products || false);
+      setShowDemoProducts((data as any).show_demo_products || false);
     }
   };
 
