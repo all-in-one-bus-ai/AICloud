@@ -47,7 +47,7 @@ export default function SuperAdminLoginPage() {
             .from('user_profiles')
             .select('is_super_admin')
             .eq('id', user.id)
-            .maybeSingle();
+            .maybeSingle() as { data: { is_super_admin: boolean } | null };
           
           if (profile?.is_super_admin) {
             clearInterval(checkSuperAdmin);
