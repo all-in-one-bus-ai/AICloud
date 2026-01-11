@@ -134,7 +134,7 @@ export default function ActivityLogPage() {
     });
 
     // Fetch all logs for export
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
