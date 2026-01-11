@@ -25,7 +25,7 @@ export async function logActivity({
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('activity_logs')
       .insert({
         event_type: eventType,
