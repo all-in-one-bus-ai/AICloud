@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
     let hasError = false;
     for (const [key, value] of updates) {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('platform_settings')
         .update({ value, updated_at: new Date().toISOString() })
         .eq('key', key);
@@ -92,7 +92,7 @@ export default function SettingsPage() {
     }
 
     // Log the activity
-    await supabase.from('activity_logs').insert({
+    await (supabase as any).from('activity_logs').insert({
       event_type: 'admin',
       event_name: 'settings_updated',
       description: `Updated ${updates.length} platform settings`,
