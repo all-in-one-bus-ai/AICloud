@@ -41,7 +41,7 @@ export default function SettingsPage() {
 
   const loadSettings = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('platform_settings')
       .select('*')
       .order('category');
