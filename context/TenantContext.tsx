@@ -93,7 +93,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       .from('tenants')
       .select('show_demo_products')
       .eq('id', tenantId)
-      .single();
+      .single() as { data: { show_demo_products: boolean } | null, error: any };
 
     if (!error && data) {
       setShowDemoProducts(data.show_demo_products || false);
