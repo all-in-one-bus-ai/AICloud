@@ -462,6 +462,7 @@ export default function BusinessesPage() {
   };
 
   const toggleDemoProducts = async (tenantId: string, currentValue: boolean) => {
+    const tenant = tenants.find(t => t.id === tenantId);
     const { error } = await (supabase as any)
       .from('tenants')
       .update({ show_demo_products: !currentValue })
@@ -474,6 +475,9 @@ export default function BusinessesPage() {
         variant: 'destructive',
       });
     } else {
+      // Log the activity
+      await ActivityLogger.demoProductsToggled(tenantId, tenant?.name || '', !currentValue);
+      
       toast({
         title: 'Success',
         description: `Demo products ${!currentValue ? 'enabled' : 'disabled'} for this business`,
