@@ -87,7 +87,7 @@ export default function ActivityLogPage() {
   const loadLogs = async () => {
     setLoading(true);
     
-    let query = supabase
+    let query = (supabase as any)
       .from('activity_logs')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
